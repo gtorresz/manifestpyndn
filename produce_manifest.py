@@ -12,7 +12,6 @@ from data import Data
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from pyndn.sha256_with_rsa_signature import Sha256WithRsaSignature
-import ast
 import json
 
 def main(filepath=None, manifest_size=None, writepath=None):
@@ -26,6 +25,7 @@ def main(filepath=None, manifest_size=None, writepath=None):
           #dataf.write(readdata)
           dataArray.append(readdata)
           manifestData = {} #manifest dictionary 
+          #manifestStorage = [] #for storing manifest tables if needed
           count = 0 #entries created 
           seq = 0 #current sequence number
           while readdata or count != 0: #go till no data is left and no manifest file is
@@ -38,9 +38,13 @@ def main(filepath=None, manifest_size=None, writepath=None):
              #c = sys.getsizeof(manifestData) #used to check size of manifest file
              count = count + 1 #keeps track of entries currently in manifest
              if count == int(manifest_size):#check if it is time to create a new manifest
-
+                #manifestStorage.append(manifestData)
                 s=json.dumps(manifestData).encode('utf-8') #set up dictionary so that it may
                                                            # be stored in manifest content
+
+                #manifestf = open(writepath + "-"+str(seq)+".txt","wb")#for file storage if needed
+                #manifestf.write(s)
+
                 manifest_packet = Manifest(Name("prefix/data/"+str(seq)))
                 manifest_packet.setContent(s)
                 #k = json.loads(Blob(manifest_packet.getContent()).toBytes().decode('utf-8'))
