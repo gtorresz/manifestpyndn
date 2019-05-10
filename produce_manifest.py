@@ -44,7 +44,7 @@ def main(filepath=None, manifest_size=None, writepath=None):
                 s=json.dumps(manifestData).encode('utf-8') #set up dictionary so that it may
                                                            # be stored in manifest content
 
-                manifest_packet = Manifest(Name("prefix/data/"+str(seq)))
+                manifest_packet = Manifest(Name("prefix/data").appendSequenceNumber(seq))
                 manifest_packet.setContent(s)
                 manifestStorage.append(manifest_packet)
                 #k = json.loads(Blob(manifest_packet.getContent()).toBytes().decode('utf-8'))
@@ -54,7 +54,7 @@ def main(filepath=None, manifest_size=None, writepath=None):
                 #print(k) 
 
                 count = 0
-                seq = seq + manifest_size + 1 #increase seq to account for next manifest
+                seq = seq + int(manifest_size) + 1 #increase seq to account for next manifest
                 manifestData = {} #reset the manifest table for new manifest
              readdata = f.read(8*1024) #read next bit of data
              if(readdata): #create datapackets as needed
