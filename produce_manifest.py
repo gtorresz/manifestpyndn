@@ -15,48 +15,59 @@ from pyndn.sha256_with_rsa_signature import Sha256WithRsaSignature
 import ast
 import json
 
-def main(filepath=None, maxSuccess=None):
-
-       with open('attacker2.csv', 'rb') as f:
-          dataArray = []
-          readdata = f.read(8*1024)
+def main(filepath=None, manifest_size=None, writepath=None):
+       if filepath is None or manifest_size is None:# or writepath is None:
+        sys.stderr.write("usage: python3 %s <file-path> <manifest size> <write-path>\n")
+        return 1
+       with open(filepath, 'rb') as f:
+          dataArray = [] #for holding the generated data
+          readdata = f.read(8*1024) #read first bit of data
+          #dataf = open(writepath + "-1.txt","wb")
+          #dataf.write(readdata)
           dataArray.append(readdata)
-          manifestData = {}
-          count = 0
-          seq = 0
-          while readdata:
-             digest = hashes.Hash(hashes.SHA256(), backend=default_backend())
-             digest.update(readdata)
-             manifestData[(seq+count)]=(str(digest.finalize()))
+          manifestData = {} #manifest dictionary 
+          count = 0 #entries created 
+          seq = 0 #current sequence number
+          while readdata or count != 0: #go till no data is left and no manifest file is
+                                        #waiting to be created
+             if(readdata): #if there is data create digest and add digest to manifest
+                digest = hashes.Hash(hashes.SHA256(), backend=default_backend())
+                digest.update(readdata)
+                manifestData[(seq+count+1)]=(str(digest.finalize()))
 
-             #c = sys.getsizeof(manifestData)
-             count = count + 1
-             if count == 100:
+             #c = sys.getsizeof(manifestData) #used to check size of manifest file
+             count = count + 1 #keeps track of entries currently in manifest
+             if count == int(manifest_size):#check if it is time to create a new manifest
 
-                #print(manifestData)
-                s=json.dumps(manifestData).encode('utf-8')
+                s=json.dumps(manifestData).encode('utf-8') #set up dictionary so that it may
+                                                           # be stored in manifest content
                 manifest_packet = Manifest(Name("prefix/data/"+str(seq)))
                 manifest_packet.setContent(s)
-                k = json.loads(Blob(manifest_packet.getContent()).toBytes().decode('utf-8'))
-                print(sys.getsizeof(Blob(s)))
-                #print(seq)
-                if seq == 15150:
-                 print(manifestData[15150])
-                 print(k["15150"])
-                #print(Blob(s).toBytes().decode('utf-8'))
-                #print(json.loads(s.decode('utf-8')))
-                #print(manifest_packet.getName())
-                while count > 0:
-                   seq = seq + 1
-                   datapacket = Data(Name("prefix/data/"+str(seq)))
-                   datapacket.setContent(dataArray[10-count])
-                   print(datapacket.getContent())
-                   count = count - 1
-                seq = seq + 1
-                manifestData = {}
-                dataArray = []
-             readdata = f.read(8*1024)
-             dataArray.append(readdata)
+                #k = json.loads(Blob(manifest_packet.getContent()).toBytes().decode('utf-8'))
+                #print(sys.getsizeof(Blob(s))) #see size of bytes 
+                #print(manifestData) #check and compare original manifestData 
+                                     #against k derived from manifest packet
+                #print(k) 
+                while count > 0: # create data packets corresponding to the entries in 
+                                 # the manifest
+                  if(dataArray[10-count]!=0):
+                     seq = seq + 1 #increase seq
+                     datapacket = Data(Name("prefix/data/"+str(seq)))
+                     datapacket.setContent(dataArray[10-count]) #add content from array
+                     #readf = open(writepath+"-"+str(seq)+".txt", 'rb')
+                     #datapacket.setContent(readf.read())
+                     #print(datapacket.getContent())#to verify content
+                  count = count - 1
+                seq = seq + 1 #increase seq to account for next manifest
+                manifestData = {} #reset the manifest table for new manifest
+                dataArray = [] #reset data array
+             readdata = f.read(8*1024) #read next bit of data
+             if readdata: #add data to data array only if there is data to add
+                #dataf = open(writepath + "-"+str(seq+1+count)+".txt","wb")
+                #dataf.write(readdata)
+                dataArray.append(readdata)
+             else:
+                dataArray.append(0)
 
 if __name__ == "__main__":
     sys.exit(main(*sys.argv[1:]))
