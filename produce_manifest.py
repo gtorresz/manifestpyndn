@@ -19,13 +19,15 @@ def main(filepath=None, manifest_size=None, writepath=None):
         sys.stderr.write("usage: python3 %s <file-path> <manifest size> <write-path>\n")
         return 1
        with open(filepath, 'rb') as f:
-          dataArray = [] #for holding the generated data
+          dataArray = [] #for holding the generated data packets
           readdata = f.read(8*1024) #read first bit of data
-          #dataf = open(writepath + "-1.txt","wb")
+          datapacket = Data(Name("prefix/data").appendSequenceNumber(1))
+          datapacket.setContent(readdata) #add content from file
+          #dataf = open(writepath + "-1.txt","wb")#need to update for packet
           #dataf.write(readdata)
-          dataArray.append(readdata)
+          dataArray.append(datapacket)
           manifestData = {} #manifest dictionary 
-          #manifestStorage = [] #for storing manifest tables if needed
+          manifestStorage = [] #for storing manifest packets
           count = 0 #entries created 
           seq = 0 #current sequence number
           while readdata or count != 0: #go till no data is left and no manifest file is
@@ -42,36 +44,26 @@ def main(filepath=None, manifest_size=None, writepath=None):
                 s=json.dumps(manifestData).encode('utf-8') #set up dictionary so that it may
                                                            # be stored in manifest content
 
-                #manifestf = open(writepath + "-"+str(seq)+".txt","wb")#for file storage if needed
-                #manifestf.write(s)
-
                 manifest_packet = Manifest(Name("prefix/data/"+str(seq)))
                 manifest_packet.setContent(s)
+                manifestStorage.append(manifest_packet)
                 #k = json.loads(Blob(manifest_packet.getContent()).toBytes().decode('utf-8'))
                 #print(sys.getsizeof(Blob(s))) #see size of bytes 
                 #print(manifestData) #check and compare original manifestData 
                                      #against k derived from manifest packet
                 #print(k) 
-                while count > 0: # create data packets corresponding to the entries in 
-                                 # the manifest
-                  if(dataArray[10-count]!=0):
-                     seq = seq + 1 #increase seq
-                     datapacket = Data(Name("prefix/data/"+str(seq)))
-                     datapacket.setContent(dataArray[10-count]) #add content from array
-                     #readf = open(writepath+"-"+str(seq)+".txt", 'rb')
-                     #datapacket.setContent(readf.read())
-                     #print(datapacket.getContent())#to verify content
-                  count = count - 1
-                seq = seq + 1 #increase seq to account for next manifest
+
+                count = 0
+                seq = seq + manifest_size + 1 #increase seq to account for next manifest
                 manifestData = {} #reset the manifest table for new manifest
-                dataArray = [] #reset data array
              readdata = f.read(8*1024) #read next bit of data
-             if readdata: #add data to data array only if there is data to add
-                #dataf = open(writepath + "-"+str(seq+1+count)+".txt","wb")
+             if(readdata): #create datapackets as needed
+                datapacket = Data(Name("prefix/data").appendSequenceNumber(seq+count+1))
+                datapacket.setContent(readdata) #add content from file
+                #dataf = open(writepath + "-"+str(seq+1+count)+".txt","wb") #need to update for packet
                 #dataf.write(readdata)
-                dataArray.append(readdata)
-             else:
-                dataArray.append(0)
+                dataArray.append(datapacket)
+
 
 if __name__ == "__main__":
     sys.exit(main(*sys.argv[1:]))
