@@ -6,46 +6,57 @@ from collections import defaultdict
 import glob
 from pyndn.name import Name
 from pyndn.face import Face
+from pyndn.util.blob import Blob
 from manifest import Manifest
 from data import Data
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes
+from pyndn.sha256_with_rsa_signature import Sha256WithRsaSignature
+import ast
+import json
 
 def main(filepath=None, maxSuccess=None):
-    #da = Manifest(Name("hi/01"))
-    #print(sys.getsizeof(da))
 
-    #server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    #server_socket.bind(("0.0.0.0", 6677))
-    #server_socket.listen(5)
-    while True:
-       #client_socket, addr = server_socket.accept()
        with open('attacker2.csv', 'rb') as f:
-          dat = []
-          dat.append(f.read(8*1024))
-          manifest = []
+          dataArray = []
+          readdata = f.read(8*1024)
+          dataArray.append(readdata)
+          manifestData = {}
           count = 0
           seq = 0
-          while dat:
-             manifest.append((seq+count, "001"))
-             #c = sys.getsizeof(manifest)
+          while readdata:
+             digest = hashes.Hash(hashes.SHA256(), backend=default_backend())
+             digest.update(readdata)
+             manifestData[(seq+count)]=(str(digest.finalize()))
+
+             #c = sys.getsizeof(manifestData)
              count = count + 1
-             if count == 10:
-                man = Data(manifest)
-                man.setName("prefix/data/"+str(seq))
-                print(man.getName())
-                #client_socket.send(bytes(man))
+             if count == 100:
+
+                #print(manifestData)
+                s=json.dumps(manifestData).encode('utf-8')
+                manifest_packet = Manifest(Name("prefix/data/"+str(seq)))
+                manifest_packet.setContent(s)
+                k = json.loads(Blob(manifest_packet.getContent()).toBytes().decode('utf-8'))
+                print(sys.getsizeof(Blob(s)))
+                #print(seq)
+                if seq == 15150:
+                 print(manifestData[15150])
+                 print(k["15150"])
+                #print(Blob(s).toBytes().decode('utf-8'))
+                #print(json.loads(s.decode('utf-8')))
+                #print(manifest_packet.getName())
                 while count > 0:
                    seq = seq + 1
-                   da = Data(Name("prefix/data/"+str(seq)))
-                   print(da.getName())
-                   #client_socket.send(bytes(da))
+                   datapacket = Data(Name("prefix/data/"+str(seq)))
+                   datapacket.setContent(dataArray[10-count])
+                   print(datapacket.getContent())
                    count = count - 1
                 seq = seq + 1
-                manifest = []
-                dat = []
-             dat.append(f.read(8*1024))
-             #client_socket.send(data)
-       #client_socket.close()
-    #print(da.getKeyValuePairs())
+                manifestData = {}
+                dataArray = []
+             readdata = f.read(8*1024)
+             dataArray.append(readdata)
 
 if __name__ == "__main__":
     sys.exit(main(*sys.argv[1:]))

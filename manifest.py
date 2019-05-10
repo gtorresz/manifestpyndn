@@ -1,3 +1,25 @@
+# -*- Mode:python; c-file-style:"gnu"; indent-tabs-mode:nil -*- */
+#
+# Copyright (C) 2014-2019 Regents of the University of California.
+# Author: Jeff Thompson <jefft0@remap.ucla.edu>
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+# A copy of the GNU Lesser General Public License is in the file COPYING.
+
+"""
+This module defines the NDN Data class.
+"""
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
@@ -12,14 +34,9 @@ from pyndn.lp.incoming_face_id import IncomingFaceId
 from pyndn.lp.congestion_mark import CongestionMark
 
 class Manifest(object):
-     
-    
-
     def __init__(self, value = None):
         if isinstance(value, Manifest):
             # Copy the values.
-            self._catalogueNames = value.getCatalogueNames()
-            self._keyValuePairs = value.getKeyValuePairs()
             self._name = ChangeCounter(Name(value.getName()))
             self._metaInfo = ChangeCounter(MetaInfo(value.getMetaInfo()))
             self._signature = ChangeCounter(value.getSignature().clone())
@@ -30,8 +47,6 @@ class Manifest(object):
         else:
             self._name = ChangeCounter(Name(value) if isinstance(value, Name)
                                                    else Name())
-            self._catalogueNames = []
-            self._keyValuePairs = {}
             self._metaInfo = ChangeCounter(MetaInfo())
             self._signature = ChangeCounter(Sha256WithRsaSignature())
             self._content = Blob()
@@ -48,6 +63,7 @@ class Manifest(object):
         Encode this Data for a particular wire format. If wireFormat is the
         default wire format, also set the defaultWireEncoding field to the
         encoded result.
+
         :param wireFormat: (optional) A WireFormat object used to encode this
            Data object. If omitted, use WireFormat.getDefaultWireFormat().
         :type wireFormat: A subclass of WireFormat
@@ -79,6 +95,7 @@ class Manifest(object):
         Decode the input using a particular wire format and update this Data.
         If wireFormat is the default wire format, also set the
         defaultWireEncoding to another pointer to the input.
+
         :param input: The array with the bytes to decode. If input is not a
           Blob, then copy the bytes to save the defaultWireEncoding (otherwise
           take another pointer to the same Blob).
@@ -108,44 +125,10 @@ class Manifest(object):
         else:
             self._setDefaultWireEncoding(SignedBlob(), None)
 
-    def addKeyValuePair(self, key, value, keySize = None, valueSize = None):
-
-       #std::string keyS(reinterpret_cast<const char*>(key), keySize);
-       #std::string valueS(reinterpret_cast<const char*>(value), valueSize);
-       self._keyValuePairs[key] = value;
-
-
-    def getValueByKey(self, key):
-       return self._keyValuePairs[key]
-
-    def eraseValueByKey(self, key):
-       self._keyValuePairs[key] = 0
-
-    def addNameToCatalogue(self, name, value = None):
-       self._catalogueNames.append(name)
-       """_catalogueNames.push_back(name);
-
-       #const Block& digest)
-       Name fullName(name);
-       fullName.append(ndn::name::Component::fromImplicitSha256Digest(digest.value(), digest.value_size()));
-       _catalogueNames.push_back(fullName);
-
-       # const ndn::ConstBufferPtr& digest)
-       Name fullName(name);
-       fullName.append(ndn::name::Component::fromImplicitSha256Digest(digest));
-       _catalogueNames.push_back(fullName);
-    """
-    def getCatalogueNames(self):
-
-        return self._catalogueNames
-
-    def getKeyValuePairs(self):
-
-        return self._keyValuePairs
-
     def getName(self):
         """
         Get the data packet's name.
+
         :return: The name.
         :rtype: Name
         """
@@ -154,6 +137,7 @@ class Manifest(object):
     def getMetaInfo(self):
         """
         Get the data packet's meta info.
+
         :return: The meta info.
         :rtype: MetaInfo
         """
@@ -162,6 +146,7 @@ class Manifest(object):
     def getSignature(self):
         """
         Get the data packet's signature object.
+
         :return: The signature object.
         :rtype: a subclass of Signature such as Sha256WithRsaSignature
         """
@@ -170,6 +155,7 @@ class Manifest(object):
     def getContent(self):
         """
         Get the data packet's content.
+
         :return: The content as a Blob, which isNull() if unspecified.
         :rtype: Blob
         """
@@ -179,6 +165,7 @@ class Manifest(object):
         """
         Return the default wire encoding, which was encoded with
         getDefaultWireEncodingFormat().
+
         :return: The default wire encoding, whose isNull() may be true if there
           is no default wire encoding.
         :rtype: SignedBlob
@@ -195,6 +182,7 @@ class Manifest(object):
     def getDefaultWireEncodingFormat(self):
         """
         Get the WireFormat which is used by getDefaultWireEncoding().
+
         :return: The WireFormat, which is only meaningful if the
           getDefaultWireEncoding() is not isNull().
         :rtype: WireFormat
@@ -204,6 +192,7 @@ class Manifest(object):
     def getIncomingFaceId(self):
         """
         Get the incoming face ID according to the incoming packet header.
+
         :return: The incoming face ID. If not specified, return None.
         :rtype: int
         """
@@ -214,6 +203,7 @@ class Manifest(object):
     def getCongestionMark(self):
         """
         Get the congestion mark according to the incoming packet header.
+
         :return: The congestion mark. If not specified, return 0.
         :rtype: int
         """
@@ -226,6 +216,7 @@ class Manifest(object):
         Get the Data packet's full name, which includes the final
         ImplicitSha256Digest component based on the wire encoding for a
         particular wire format.
+
         :param wireFormat: (optional) A WireFormat object used to encode
            this object. If omitted, use WireFormat.getDefaultWireFormat().
         :type wireFormat: A subclass of WireFormat
@@ -257,19 +248,10 @@ class Manifest(object):
 
         return fullName
 
-    def setCatalogueNames(self, catalogueNames):
-
-        self._catalogueNames = catalogueNames 
-      # self._changeCount += 1
-
-    def setKeyValuePairs(self, keyValuePairs):
-
-        self._keyValuePairs = keyValuePairs 
-      # self._changeCount += 1
-
     def setName(self, name):
         """
         Set name to a copy of the given Name.
+
         :param Name name: The Name which is copied.
         :return: This Data so that you can chain calls to update values.
         :rtype: Data
@@ -281,6 +263,7 @@ class Manifest(object):
     def setMetaInfo(self, metaInfo):
         """
         Set metaInfo to a copy of the given MetaInfo.
+
         :param MetaInfo metaInfo: The MetaInfo which is copied.
         :return: This Data so that you can chain calls to update values.
         :rtype: Data
@@ -293,6 +276,7 @@ class Manifest(object):
     def setSignature(self, signature):
         """
         Set the signature to a copy of the given signature.
+
         :param signature: The signature object which is cloned.
         :type signature: a subclass of Signature such as Sha256WithRsaSignature
         :return: This Data so that you can chain calls to update values.
@@ -306,6 +290,7 @@ class Manifest(object):
     def setContent(self, content):
         """
         Set the content to the given value.
+
         :param content: The array with the content bytes. If content is not a
           Blob, then create a new Blob to copy the bytes (otherwise
           take another pointer to the same Blob).
@@ -318,6 +303,7 @@ class Manifest(object):
         """
         An internal library method to set the LpPacket for an incoming packet.
         The application should not call this.
+
         :param LpPacket lpPacket: The LpPacket. This does not make a copy.
         :return: This Data so that you can chain calls to update values.
         :rtype: Data
@@ -331,6 +317,7 @@ class Manifest(object):
         """
         Get the change count, which is incremented each time this object
         (or a child object) is changed.
+
         :return: The change count.
         :rtype: int
         """
@@ -357,6 +344,6 @@ class Manifest(object):
     metaInfo = property(getMetaInfo, setMetaInfo)
     signature = property(getSignature, setSignature)
     content = property(getContent, setContent)
-    catalogueNames = property(getCatalogueNames, setCatalogueNames)
-    keyValuePairs = property(getKeyValuePairs, setKeyValuePairs)
+
+
 
