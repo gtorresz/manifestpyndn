@@ -153,7 +153,7 @@ def main():
             # continue
 
             signTime = timeit.timeit(stmt='experiment.signManifests()', number=1, globals={**globals(), **locals()}) # sign all manifests 10 times
-            verifyTime = timeit.timeit(stmt='experiment.verifyManifests()', number=10, globals={**globals(), **locals()}) # sign all manifests 10 times
+            verifyTime = timeit.timeit(stmt='experiment.verifyManifests()', number=1, globals={**globals(), **locals()}) # sign all manifests 10 times
 
             # this requires Python 3.6
             print (f"{groupSize},{nAttributes}" +
