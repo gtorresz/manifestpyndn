@@ -14,6 +14,10 @@ import numpy
 from pyndn import Blob, Data, Face, Name, DigestSha256Signature
 import ndnabs
 
+from pyndn.security import KeyChain
+from pyndn.security.v2 import Validator
+from pyndn.security.v2 import ValidationPolicyFromPib
+
 class Error(RuntimeError):
     pass
 
@@ -23,13 +27,11 @@ class Experiment:
 
     _maxSegmentPayloadLength = 8192
 
-    def __init__(self, filename, groupSize, nAttributes, absPath, keepData = False):
-
-        self.attributes = [b'attribute%d' % i for i in range(1, nAttributes + 1)]
-        self._setupAbs(absPath)
-        self._readDataAndCreateManifests(filename, groupSize, keepData)
-
-    def _setupAbs(self, absPath):
+    def __init__(self, absPath, maxAttributes):
+        self.keyChain = KeyChain("pib-memory:", "tpm-memory:")
+        self.keyChain.createIdentityV2("/test/identity")
+        self.validator = Validator(ValidationPolicyFromPib(self.keyChain.getPib()))
+        # , filename, groupSize, nAttributes, absPath, keepData = False):
 
         # sys.stderr.write ("Using NDN-ABS authority, signer, and verifier database from %s\n" % absPath)
         self.db = ndnabs.PickleDb(absPath)
@@ -44,16 +46,25 @@ class Experiment:
         except:
             raise RuntimeError("Public parameters are not properly installed for the signer/verifier")
 
-        for attr in self.attributes:
+        maxAttributes = [b'attribute%d' % i for i in range(1, maxAttributes + 1)]
+
+        for attr in maxAttributes:
             if not attr in self.signer.get_attributes():
-                raise RuntimeError("%s attribute missing. Generate attributes for the experiment using `ndnabs gen-secret %s | ndnabs install-secret`" % (str(attr, 'utf-8'), ' '.join([str(i, 'utf-8') for i in self.attributes])))
+                raise RuntimeError("%s attribute missing. Generate attributes for the experiment using `ndnabs gen-secret %s | ndnabs install-secret`" % (str(attr, 'utf-8'), ' '.join([str(i, 'utf-8') for i in maxAttributes])))
+
+    #     self.attributes = [b'attribute%d' % i for i in range(1, nAttributes + 1)]
+    #     self._setupAbs(absPath)
+    #     self._readDataAndCreateManifests(filename, groupSize, keepData)
+
+    def setupAbs(self, nAttributes):
+        self.attributes = [b'attribute%d' % i for i in range(1, nAttributes + 1)]
 
     def _createManifest(self, name, manifestBuffer, nManifests):
         manifest = Data(name)
         manifest.setContent(manifestBuffer[0:nManifests * SHA256_DIGEST_SIZE])
         return manifest
 
-    def _readDataAndCreateManifests(self, filename, groupSize, keepData):
+    def readDataAndCreateManifests(self, filename, groupSize, keepData):
         if groupSize < 1:
             raise RuntimeError("Group size cannot be less than 1")
 
@@ -119,7 +130,7 @@ class Experiment:
 
             self.nDataChunks = seqNo - len(self.allManifests) # number of data packets, excluding the manifests
 
-    def signManifests(self):
+    def signManifestsABS(self):
         self.manifestCount = 0
         self.signatureCounts = []
         for manifest in self.allManifests:
@@ -127,15 +138,33 @@ class Experiment:
             self.manifestCount = self.manifestCount + manifest.wireEncode().size()
             self.signatureCounts.append(manifest.getSignature().getSignature().size())
 
-    def verifyManifests(self):
+    def verifyManifestsABS(self):
         for manifest in self.allManifests:
-            self.signer.verify(manifest.wireEncode())
+            if not self.signer.verify(manifest.wireEncode()):
+                sys.stderr.write("Failed to verify %s\n" % manifest.getName())
+
+    def signManifestsRSA(self):
+        self.manifestCount = 0
+        self.signatureCounts = []
+        for manifest in self.allManifests:
+            self.keyChain.sign(manifest)
+            self.manifestCount = self.manifestCount + manifest.wireEncode().size()
+            self.signatureCounts.append(manifest.getSignature().getSignature().size())
+
+    def verifyManifestsRSA(self):
+        def onSuccess(*k, **kw):
+            pass
+        def onFailure(data, *k, **kw):
+            sys.stderr.write("Failed to verify %s\n" % manifest.getName())
+
+        for manifest in self.allManifests:
+            self.validator.validate(manifest, onSuccess, onFailure)
 
 def main():
     parser = argparse.ArgumentParser(description = 'NDN-ABS experiment')
     parser.add_argument('file', help='''File to encode in chunks and sign''')
-    parser.add_argument('--minGroupSize', type=int, default=1, help='''Min manifestt group size (default: 1)''')
-    parser.add_argument('--maxGroupSize', type=int, default=10, help='''Max manifest group size (default: 10)''')
+    parser.add_argument('--minGroupSize', type=int, default=20, help='''Min manifestt group size (default: 20)''')
+    parser.add_argument('--maxGroupSize', type=int, default=20, help='''Max manifest group size (default: 20)''')
     parser.add_argument('--minAttributes', type=int, default=1, help='''Min number of attributes (default: 1)''')
     parser.add_argument('--maxAttributes', type=int, default=10, help='''Max number of attributes (default: 10)''')
     parser.add_argument('--keep-data', action='store_true', help='''Keep all generated chunks in memory''')
@@ -143,25 +172,47 @@ def main():
 
     args = parser.parse_args()
 
-    print ("GroupSize,NAttributes,SignTime,VerifyTime,RawDataSize,NdnDataSize,NManifests,NData,MinAbsSignatureSize,MaxAbsSignatureSize,AvgAbsSignatureSize,StdAbsSignatureSize")
+    startTime = timeit.default_timer()
+    sys.stderr.write("Initializing NDN-ABS framework\n")
+    experiment = Experiment(args.abs_path, args.maxAttributes)
+    absInitTime = timeit.default_timer() - startTime
+    sys.stderr.write(f"   done in {absInitTime}\n")
+
+    print ("GroupSize,NAttributes,SignTime,VerifyTime,RawDataSize,NdnDataSize,NManifests,NData,SignatureType,SignatureSize,DataPrepareTime")
 
     for groupSize in range(args.minGroupSize, args.maxGroupSize + 1):
+        startTime = timeit.default_timer()
+        experiment.readDataAndCreateManifests(args.file, groupSize, args.keep_data)
+        chopDataTime = timeit.default_timer() - startTime
+
         for nAttributes in range(args.minAttributes, args.maxAttributes + 1):
-            experiment = Experiment(args.file, groupSize, nAttributes, args.abs_path, args.keep_data)
+            experiment.setupAbs(nAttributes)
             # for i in experiment.allChunks:
             #     print ("name:", i.getName(), "size:", len(i.wireEncode().toBytes()), "contentSize:", i.getContent().size())
             # continue
 
-            signTime = timeit.timeit(stmt='experiment.signManifests()', number=1, globals={**globals(), **locals()}) # sign all manifests 10 times
-            verifyTime = timeit.timeit(stmt='experiment.verifyManifests()', number=1, globals={**globals(), **locals()}) # sign all manifests 10 times
+            for t in ["ABS", "RSA"]:
+                startTime = timeit.default_timer()
+                # signTime = timeit.timeit(stmt='experiment.signManifests%s()' % t, number=1, globals={**globals(), **locals()})
+                getattr(experiment, 'signManifests%s' % t)()
+                signTime = timeit.default_timer() - startTime
 
-            # this requires Python 3.6
-            print (f"{groupSize},{nAttributes}" +
-                   f",{signTime / experiment.manifestCount},{verifyTime / experiment.manifestCount}" +
-                   f",{experiment.rawDataCount},{experiment.ndnChunkCount + experiment.manifestCount}" +
-                   f",{len(experiment.allManifests)},{experiment.nDataChunks}"
-                   f",{numpy.min(experiment.signatureCounts)},{numpy.max(experiment.signatureCounts)}" +
-                   f",{numpy.mean(experiment.signatureCounts)},{numpy.std(experiment.signatureCounts)}")
+                sys.stderr.write(f" >> done signing with {nAttributes} attributes and {groupSize} chunks per manifest in {signTime}\n")
+
+                startTime = timeit.default_timer()
+                # verifyTime = timeit.timeit(stmt='experiment.verifyManifests%s()' % t, number=1, globals={**globals(), **locals()})
+                getattr(experiment, 'verifyManifests%s' % t)()
+                verifyTime = timeit.default_timer() - startTime
+
+                sys.stderr.write(f" >> done verification with {nAttributes} attributes and {groupSize} chunks per manifest in {verifyTime}\n")
+
+                # this requires Python 3.6
+                print (f"{groupSize},{nAttributes}" +
+                       f",{signTime / len(experiment.allManifests)},{verifyTime / len(experiment.allManifests)}" +
+                       f",{experiment.rawDataCount},{experiment.ndnChunkCount + experiment.manifestCount}" +
+                       f",{len(experiment.allManifests)},{experiment.nDataChunks}" +
+                       f",{t},{numpy.mean(experiment.signatureCounts)}" +
+                       f",{chopDataTime}")
 
 if __name__ == "__main__":
     try:

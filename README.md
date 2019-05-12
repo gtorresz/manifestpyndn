@@ -25,3 +25,7 @@ To setup the experiment:
 4. Run the experiment and record the result
 
         ./abs_experiment.py myfile
+
+    With saving output to CSV file
+
+        ./abs_experiment.py myfile --minGroupSize=20 --maxGroupSize=20 --minAttributes=1 --maxAttributes=2 > result-<cpu-and-platform-description>.csv
