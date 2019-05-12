@@ -129,7 +129,7 @@ class Experiment:
 
     def verifyManifests(self):
         for manifest in self.allManifests:
-            self.signer.verify(manifest)
+            self.signer.verify(manifest.wireEncode())
 
 def main():
     parser = argparse.ArgumentParser(description = 'NDN-ABS experiment')
@@ -152,8 +152,8 @@ def main():
             #     print ("name:", i.getName(), "size:", len(i.wireEncode().toBytes()), "contentSize:", i.getContent().size())
             # continue
 
-            signTime = timeit.timeit(stmt='experiment.signManifests()', number=10, globals={**globals(), **locals()}) # sign all manifests 10 times
-            verifyTime = 0 #timeit.timeit(stmt='experiment.verifyManifests()', number=10, globals={**globals(), **locals()}) # sign all manifests 10 times
+            signTime = timeit.timeit(stmt='experiment.signManifests()', number=1, globals={**globals(), **locals()}) # sign all manifests 10 times
+            verifyTime = timeit.timeit(stmt='experiment.verifyManifests()', number=10, globals={**globals(), **locals()}) # sign all manifests 10 times
 
             # this requires Python 3.6
             print (f"{groupSize},{nAttributes}" +
