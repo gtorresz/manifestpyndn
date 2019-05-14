@@ -168,6 +168,8 @@ def main():
     parser.add_argument('--minAttributes', type=int, default=1, help='''Min number of attributes (default: 1)''')
     parser.add_argument('--maxAttributes', type=int, default=10, help='''Max number of attributes (default: 10)''')
     parser.add_argument('--keep-data', action='store_true', help='''Keep all generated chunks in memory''')
+    parser.add_argument('--runs', type=int, default=10, help='''Number of runs in each experiment''')
+
     parser.add_argument('--abs-path', default=os.path.expanduser('~/.ndn/ndnabs.db'), help='''Set path for security database (default: ~/.ndn/ndnabs.db)''')
 
     args = parser.parse_args()
@@ -178,7 +180,7 @@ def main():
     absInitTime = timeit.default_timer() - startTime
     sys.stderr.write(f"   done in {absInitTime}\n")
 
-    print ("GroupSize,NAttributes,SignTime,VerifyTime,RawDataSize,NdnDataSize,NManifests,NData,SignatureType,SignatureSize,DataPrepareTime")
+    print ("GroupSize,NAttributes,SignTime,VerifyTime,RawDataSize,NdnDataSize,NManifests,NData,SignatureType,SignatureSize,DataPrepareTime, Run")
 
     for groupSize in range(args.minGroupSize, args.maxGroupSize + 1):
         startTime = timeit.default_timer()
@@ -186,6 +188,7 @@ def main():
         chopDataTime = timeit.default_timer() - startTime
 
         for nAttributes in range(args.minAttributes, args.maxAttributes + 1):
+          for run in range(0, args.runs):
             experiment.setupAbs(nAttributes)
             # for i in experiment.allChunks:
             #     print ("name:", i.getName(), "size:", len(i.wireEncode().toBytes()), "contentSize:", i.getContent().size())
@@ -212,8 +215,7 @@ def main():
                        f",{experiment.rawDataCount},{experiment.ndnChunkCount + experiment.manifestCount}" +
                        f",{len(experiment.allManifests)},{experiment.nDataChunks}" +
                        f",{t},{numpy.mean(experiment.signatureCounts)}" +
-                       f",{chopDataTime}")
-
+                       f",{chopDataTime}" +f",{run}")
 if __name__ == "__main__":
     try:
         main()
